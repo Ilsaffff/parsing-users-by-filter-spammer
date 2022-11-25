@@ -1,20 +1,19 @@
+import csv
 import time
 import random
 import requests
 from bs4 import BeautifulSoup as bs
+import pandas
 
 from telethon.sync import TelegramClient
 from telethon.errors.rpcerrorlist import PeerFloodError, SessionPasswordNeededError
 
 
 class TeleSpam:
-    def __init__(self, api_id, api_hash, phone, time_inf, time_sup, keywords):
+    def __init__(self, api_id, api_hash, phone):
         self.api_id = api_id
         self.api_hash = api_hash
         self.phone = phone
-        self.time_inf = time_inf
-        self.time_sup = time_sup
-        self.keywords = keywords
         self.client = TelegramClient(self.phone, self.api_id, self.api_hash)
 
     def connect(self):
@@ -24,62 +23,83 @@ class TeleSpam:
         if not self.client.is_user_authorized():
             self.client.send_code_request(self.phone)
             try:
-                self.client.sign_in(self.phone, input('Enter verification code: '))
+                self.client.sign_in(self.phone, input('Введите код верификации: '))
             except SessionPasswordNeededError:
-                self.client.sign_in(password=input("Enter password: "))
-        print('Client is connected.', end='\r')
+                self.client.sign_in(password=input("Введите пароль: "))
+        print('Соединение установлено.', end='\r')
 
-    def get_chats(self):
+    def parsing_users(self, is_sorting, keywords):
+        chat_title = self.get_chat()
+        self.chat_scraper(chat_title, is_sorting, keywords)
+
+    def get_chat(self):
         """Getting all user`s chats"""
-        groups = [dialog for dialog in self.client.get_dialogs() if dialog.is_group and dialog.is_channel]
-        print('From which chat you want to parse members:')
-        [print(str(groups.index(g) + 1) + ' - ' + g.title) for g in groups]
-        print('Exit - any other symbol')
-        self.choice_checker(groups)
-
-    def choice_checker(self, groups):
-        if not (user_input := input("\nPlease! Enter a Number: ")).isdigit() or \
-                int(user_input) not in range(1, len(groups)):
+        chats = [dialog for dialog in self.client.get_dialogs() if dialog.is_group and dialog.is_channel]
+        print('С какого чата ты хочешь парсить участников?:')
+        [print(str(chats.index(g)) + ' - ' + g.title) for g in chats]
+        print('Выход - любой другой символ')
+        if not (user_input := input("\nВыбери номер чата")).isdigit() or \
+                int(user_input) not in range(len(chats)):
             print('\nBye!\n')
             pass
         else:
-            self.chat_scraper(groups[int(user_input) - 1])
+            chat = chats[int(user_input)]
+            return chat
 
-    def search_description(self, user):
-        url = 'https://t.me/' + user
+    def get_description(self, user):
+        url = 'https://t.me/' + str(user)
         r = requests.get(url)
         soup = bs(r.text, "html.parser")
-        description_html = soup.find(class_='tgme_page')
-        is_search = False
-        for description in self.keywords:
-            is_description = description in description_html.text.lower().replace(' ', '')
-            if is_description:
-                is_search = True
-        return is_search
+        if user:
+            description_html = soup.find(class_='tgme_page_description')
+            if description_html:
+                description_html = description_html.text
+                return description_html
 
-    def chat_scraper(self, target_group):
+    def chat_scraper(self, target_group, is_sorting, keywords):
         """Collecting chat members"""
-        filter_users = []
+        # users = {'username': [], 'description': []}
+        users = []
+        user_number = 0
         print('Scraping members...', end='\r')
-        users = [user.username for user in self.client.get_participants(target_group, aggressive=False) if
-                 user.username]
-        for user in users:
-            if self.search_description(user):
-                filter_users.append(user)
-                print(user)
-        print(f'Scraped {len(filter_users)} members!')
-        while (answer := input('\nDo you wanna save(1) or continue to spam(2)? ')) not in ['1', '2']:
-            print('Choose 1 or 2')
-        if answer == '2':
-            messages = self.message_text()
-            self.spam(filter_users, messages)
-        elif answer == '1':
-            print('Saving In file...')
-            with open(f"{target_group.title}", "w", encoding='UTF-8') as f:
-                [f.write(user + '\n') for user in filter_users]
-            print('Done!')
+        print(self.client.get_participants(target_group, aggressive=False))
+        parsing_users = [user for user in self.client.get_participants(target_group, aggressive=False) if user]
+        with open(f"{input('Укажите название CSV файла для сохранения данных')}.csv", "w", encoding='UTF-8') as file:
+            csv.writer(file).writerow(('Username', 'First Name', 'Phone', 'Description'))
+            if is_sorting:
+                for user in parsing_users:
+                    if user.username and user.first_name:
+                        for keyword in keywords:
+                            is_keyword = keyword in self.get_description(user.username)
+                            if is_keyword:
+                                user_number = user_number + 1
+                                users.append({
+                                    'username': user.username,
+                                    'first_name': user.first_name,
+                                    'phone': user.phone,
+                                    'description': self.get_description(user.username)
+                                })
+                                csv.writer(file).writerow(
+                                    (user['username'], user['first_name'], user['phone'], user['description']))
+                                print(f'Сохранено: {user_number}')
+            else:
+                for user in parsing_users:
+                    if user.username and user.username:
+                        user_number = user_number + 1
+                        users.append({
+                            'username': user.username,
+                            'first_name': user.first_name,
+                            'phone': user.phone,
+                            'description': self.get_description(user.username)
+                        })
+                        csv.writer(file).writerow(
+                            (user['username'], user['first_name'], user['phone'], user['description']))
+                        if user_number % 10 == 0:
+                            print(f'Сохранено: {user_number}')
+            print(f'Сохранено {user_number} пользователей!\n')
+            print('Все данные сохранены!')
 
-    def message_text(self):
+    def get_messages(self):
         messages = self.base_opening('message_database.txt')
         print(messages)
         return messages
@@ -91,9 +111,10 @@ class TeleSpam:
             [base.append(element.strip()) for element in f.readlines()]
         return base
 
-    def spam(self, users, messages):
+    def spam(self, users, time_inf, time_sup):
         """Spam to users"""
-        delay = random.randint(self.time_inf, self.time_sup)
+        delay = random.randint(time_inf, time_sup)
+        messages = self.get_messages()
         for user in users:
             print("Sending Message to: ", user)
             try:
@@ -122,4 +143,4 @@ if __name__ == '__main__':
 
     new_obj = TeleSpam(api_id, api_hash, phone)
     new_obj.connect()
-    new_obj.get_chats()
+    new_obj.get_chat()
