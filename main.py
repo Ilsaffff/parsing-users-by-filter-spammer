@@ -1,9 +1,9 @@
 from TeleSpam import TeleSpam
 
 # API_ID и API_HASH берутся с сайта https://my.telegram.org/
-api_id = 20994580
-api_hash = '8db4611a916cff81ec7176a71c2f1695'
-phone = '+6281242592505'
+api_id = 0
+api_hash = ''
+phone = ''
 time_inf = 50  # нижняя грань времени
 time_sup = 60  # верхняя грань
 keywords = ['']

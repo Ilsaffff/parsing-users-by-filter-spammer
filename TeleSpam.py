@@ -3,7 +3,6 @@ import time
 import random
 import requests
 from bs4 import BeautifulSoup as bs
-import pandas
 
 from telethon.sync import TelegramClient
 from telethon.errors.rpcerrorlist import PeerFloodError, SessionPasswordNeededError
@@ -46,25 +45,25 @@ class TeleSpam:
             chat = chats[int(user_input)]
             return chat
 
-    def get_description(self, user):
+    @staticmethod
+    def get_description(user):
         url = 'https://t.me/' + str(user)
         r = requests.get(url)
         soup = bs(r.text, "html.parser")
         if user:
-            description_html = soup.find(class_='tgme_page_description')
+            time.sleep(0.1)
+            description_html = soup.find(class_='tgme_page_wrap').find(class_='tgme_body_wrap').find(
+                class_='tgme_page').find(class_='tgme_page_description')
             if description_html:
                 description_html = description_html.text
                 return description_html
 
     def chat_scraper(self, target_group, is_sorting, keywords):
-        """Collecting chat members"""
-        # users = {'username': [], 'description': []}
-        users = []
         user_number = 0
         print('Scraping members...', end='\r')
-        print(self.client.get_participants(target_group, aggressive=False))
         parsing_users = [user for user in self.client.get_participants(target_group, aggressive=False) if user]
-        with open(f"{input('Укажите название CSV файла для сохранения данных')}.csv", "w", encoding='UTF-8') as file:
+        with open(f"{input('Укажите название CSV файла для сохранения данных')}.csv", "w", encoding='UTF-8',
+                  newline='') as file:
             csv.writer(file).writerow(('Username', 'First Name', 'Phone', 'Description'))
             if is_sorting:
                 for user in parsing_users:
@@ -73,27 +72,15 @@ class TeleSpam:
                             is_keyword = keyword in self.get_description(user.username)
                             if is_keyword:
                                 user_number = user_number + 1
-                                users.append({
-                                    'username': user.username,
-                                    'first_name': user.first_name,
-                                    'phone': user.phone,
-                                    'description': self.get_description(user.username)
-                                })
                                 csv.writer(file).writerow(
-                                    (user['username'], user['first_name'], user['phone'], user['description']))
+                                    (user.username, user.first_name, user.phone, self.get_description(user.username)))
                                 print(f'Сохранено: {user_number}')
             else:
                 for user in parsing_users:
-                    if user.username and user.username:
+                    if user.username or user.first_name:
                         user_number = user_number + 1
-                        users.append({
-                            'username': user.username,
-                            'first_name': user.first_name,
-                            'phone': user.phone,
-                            'description': self.get_description(user.username)
-                        })
                         csv.writer(file).writerow(
-                            (user['username'], user['first_name'], user['phone'], user['description']))
+                            (user.username, user.first_name, user.phone, self.get_description(user.username)))
                         if user_number % 10 == 0:
                             print(f'Сохранено: {user_number}')
             print(f'Сохранено {user_number} пользователей!\n')
@@ -134,13 +121,3 @@ class TeleSpam:
                     time.sleep(delay)
                     time.sleep(delay)
         print('\nEnd of the program')
-
-
-if __name__ == '__main__':
-    api_id = 0000000
-    api_hash = ''
-    phone = ''
-
-    new_obj = TeleSpam(api_id, api_hash, phone)
-    new_obj.connect()
-    new_obj.get_chat()
