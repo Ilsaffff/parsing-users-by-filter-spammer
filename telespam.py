@@ -3,9 +3,10 @@ import time
 import random
 import requests
 from bs4 import BeautifulSoup as bs
+from db import DBHelper
 
 from telethon.sync import TelegramClient
-from telethon.errors.rpcerrorlist import PeerFloodError, SessionPasswordNeededError
+from telethon.errors.rpcerrorlist import PeerFloodError, PhoneNumberBannedError, SessionPasswordNeededError
 
 
 class TeleSpam:
@@ -16,7 +17,6 @@ class TeleSpam:
         self.client = TelegramClient(self.phone, self.api_id, self.api_hash)
 
     def connect(self):
-        """Connecting client to Telegram"""
         self.client.connect()
         print('Connecting...', end='\r')
         if not self.client.is_user_authorized():
@@ -27,12 +27,20 @@ class TeleSpam:
                 self.client.sign_in(password=input("Введите пароль: "))
         print('Соединение установлено.', end='\r')
 
+    def switching_account(self, file_db, current_api_id):
+        db = DBHelper(file_db)
+        db.delete_log(current_api_id)
+        log = db.get_log()
+        self.api_id = log.api_id
+        self.api_hash = log.api_hash
+        self.phone = log.phone
+        print('Аккаунт успешно сменён, продолжаем работу')
+
     def parsing_users(self, is_sorting, keywords):
         chat_title = self.get_chat()
         self.chat_scraper(chat_title, is_sorting, keywords)
 
     def get_chat(self):
-        """Getting all user`s chats"""
         chats = [dialog for dialog in self.client.get_dialogs() if dialog.is_group and dialog.is_channel]
         print('С какого чата ты хочешь парсить участников?:')
         [print(str(chats.index(g)) + ' - ' + g.title) for g in chats]
@@ -91,33 +99,34 @@ class TeleSpam:
         print(messages)
         return messages
 
-    def base_opening(self, file_name):
-        """Opening database"""
+    @staticmethod
+    def base_opening(file_name):
         base = []
         with open(file_name, "r", encoding="utf-8") as f:
             [base.append(element.strip()) for element in f.readlines()]
         return base
 
-    def spam(self, users, time_inf, time_sup):
-        """Spam to users"""
+    def spam(self, users, file_logs_db, time_inf, time_sup):
         delay = random.randint(time_inf, time_sup)
         messages = self.get_messages()
         for user in users:
-            print("Sending Message to: ", user)
+            print("Отправка сообщения пользователю: ", user)
             try:
                 self.client.send_message(user, random.choice(messages))
             except PeerFloodError:
-                print("[!] Getting Flood Error from telegram. \n [!] Script is stopping now. \n"
-                      "[!] Please try again after some time.")
-                self.client.disconnect()
-                self.client.disconnect()
-                break
+                print("[!] Telegram выдал ошибку флуда.\n[!] Скрипт приостановлен.\n"
+                      "[!] Переключаем аккаунт")
+                self.switching_account(file_logs_db, self.api_id)
+            except PhoneNumberBannedError:
+                print("[!] Telegram забанил данный аккаунт.\n[!] Скрипт приостановлен.\n"
+                      "[!] Переключаем аккаунт")
+                self.switching_account(file_logs_db, self.api_id)
             except Exception as e:
-                print("[!] Error:", e, "\n[!] Trying to continue...")
+                print("[!] Ошибка:", e, "\n[!] Пытаемся продолжить работу...")
                 continue
             else:
                 if user != users[-1]:
-                    print(f"Waiting {delay} seconds")
+                    print(f"Ждём {delay} секунд")
                     time.sleep(delay)
                     time.sleep(delay)
-        print('\nEnd of the program')
+        print('\nDone!')
