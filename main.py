@@ -1,14 +1,13 @@
 from telespam import TeleSpam
 
+
+file_db = ''
+
 # API_ID и API_HASH берутся с сайта https://my.telegram.org/
-api_id = 0
-api_hash = ''
-phone = ''
-file_logs_db = 'logs.db'
 time_inf = 50  # нижняя грань времени
 time_sup = 60  # верхняя грань
 keywords = ['']
-obj = TeleSpam(api_id, api_hash, phone)
+obj = TeleSpam(file_db)
 obj.connect()
 
 choise = int(input(
@@ -29,8 +28,8 @@ if choise in [1, 2]:
                  '(1) Да\n'
                  '(2) Нет\n'
                  'Напиши свой выбор')) == 1:
-        obj.spam(users, file_logs_db, time_inf, time_sup)
+        obj.spam(users, file_db, time_inf, time_sup)
 if choise == 3:
     users = obj.base_opening('users_database.txt')
     messages = obj.base_opening('message_database.txt')
-    obj.spam(users, file_logs_db, time_inf, time_sup)
+    obj.spam(users, file_db, time_inf, time_sup)

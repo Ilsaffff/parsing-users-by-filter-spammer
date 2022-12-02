@@ -2,6 +2,7 @@ import csv
 import time
 import random
 import requests
+import telethon
 from bs4 import BeautifulSoup as bs
 from db import DBHelper
 
@@ -10,27 +11,38 @@ from telethon.errors.rpcerrorlist import PeerFloodError, PhoneNumberBannedError,
 
 
 class TeleSpam:
-    def __init__(self, api_id, api_hash, phone):
-        self.api_id = api_id
-        self.api_hash = api_hash
-        self.phone = phone
+    def __init__(self, file_db):
+        self.file_db = file_db
+        self.db = DBHelper(file_db)
+        self.api_id = self.db.get_log().api_id
+        self.api_hash = self.db.get_log().api_hash
+        self.phone = self.db.get_log().phone
         self.client = TelegramClient(self.phone, self.api_id, self.api_hash)
 
     def connect(self):
         self.client.connect()
         print('Connecting...', end='\r')
         if not self.client.is_user_authorized():
-            self.client.send_code_request(self.phone)
+            try:
+                self.client.send_code_request(self.phone)
+            except PhoneNumberBannedError:
+                print('Данный аккаунт забанен')
+                self.db.delete_log(self.api_id)
+                logs = self.db.get_log()
+                self.api_id = logs.api_id
+                self.api_hash = logs.api_hash
+                self.phone = logs.phone
+                self.client = TelegramClient(self.phone, self.api_id, self.api_hash)
             try:
                 self.client.sign_in(self.phone, input('Введите код верификации: '))
             except SessionPasswordNeededError:
                 self.client.sign_in(password=input("Введите пароль: "))
         print('Соединение установлено.', end='\r')
 
-    def switching_account(self, file_db, current_api_id):
-        db = DBHelper(file_db)
-        db.delete_log(current_api_id)
-        log = db.get_log()
+    def switching_account(self, current_api_id):
+
+        self.db.delete_log(current_api_id)
+        log = self.db.get_log()
         self.api_id = log.api_id
         self.api_hash = log.api_hash
         self.phone = log.phone
@@ -106,7 +118,7 @@ class TeleSpam:
             [base.append(element.strip()) for element in f.readlines()]
         return base
 
-    def spam(self, users, file_logs_db, time_inf, time_sup):
+    def spam(self, users, file_db, time_inf, time_sup):
         delay = random.randint(time_inf, time_sup)
         messages = self.get_messages()
         for user in users:
@@ -116,11 +128,11 @@ class TeleSpam:
             except PeerFloodError:
                 print("[!] Telegram выдал ошибку флуда.\n[!] Скрипт приостановлен.\n"
                       "[!] Переключаем аккаунт")
-                self.switching_account(file_logs_db, self.api_id)
+                self.switching_account(file_db, self.api_id)
             except PhoneNumberBannedError:
                 print("[!] Telegram забанил данный аккаунт.\n[!] Скрипт приостановлен.\n"
                       "[!] Переключаем аккаунт")
-                self.switching_account(file_logs_db, self.api_id)
+                self.switching_account(file_db, self.api_id)
             except Exception as e:
                 print("[!] Ошибка:", e, "\n[!] Пытаемся продолжить работу...")
                 continue
