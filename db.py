@@ -1,7 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import create_engine, func
 from sqlalchemy.orm import sessionmaker, query
-from models import Base, Log
+from models import Base, Log, Message
 
 
 class DBHelper:
@@ -19,3 +19,9 @@ class DBHelper:
     def get_log(self):
         log = self.session.query(Log).first()
         return log
+
+    def get_message(self, message_id):
+        message = self.session.query(Message).filter_by(message_id=message_id).first()
+        return message.text
+
+

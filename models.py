@@ -14,3 +14,9 @@ class Log(Base):
     def __repr__(self):
         return f'{self.api_id}'
 
+
+class Message(Base):
+    __tablename__ = 'messagies'
+    id = Column(Integer, primary_key=True)
+    text = Column(String)
+
