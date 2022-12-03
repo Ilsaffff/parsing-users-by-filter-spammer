@@ -30,4 +30,13 @@ class User(Base):
     username = Column(String)
 
     def __repr__(self):
-        return f'{self.username}'
+        return f'{self.id}'
+
+
+class Keyword(Base):
+    __tablename__ = 'keywords'
+    id = Column(Integer, primary_key=True)
+    text = Column(String)
+
+    def __repr__(self):
+        return f'{self.text}'

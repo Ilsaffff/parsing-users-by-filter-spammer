@@ -3,9 +3,8 @@ import random
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy_repr import RepresentableBase
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy import create_engine, func
-from sqlalchemy.orm import sessionmaker, query
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 import models
 
 
@@ -29,9 +28,14 @@ class DBHelper:
         messages = self.session.query(models.Message).all()
         return messages
 
-    def get_users(self):
+    def get_users_id(self):
         users = self.session.query(models.User).all()
-        return users
+        users_id = [user.id for user in users]
+        return users_id
+
+    def get_keywords(self):
+        keywords = self.session.query(models.Keyword).all()
+        return keywords
 
     def add_table_users(self, table_name):
         Base = declarative_base(cls=RepresentableBase)
@@ -47,11 +51,7 @@ class DBHelper:
         Base.metadata.create_all(self.engine)
         return User
 
-    def add_user(self, users_table, username, first_name, phone, description):
-        self.session.add(users_table(username=username, first_name=first_name, phone=phone, description=description))
+    def add_user(self, users_table, id, username, first_name, phone, description):
+        self.session.add(
+            users_table(username=username, id=id, first_name=first_name, phone=phone, description=description))
         self.session.commit()
-
-
-db = DBHelper('test.db')
-users_table = db.add_table_users('parsing_users')
-db.add_user(users_table, 'ilsaf', 'ilsafchik', '+7986', 'Hi Bro')
