@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy_repr import RepresentableBase
 
@@ -16,7 +16,18 @@ class Log(Base):
 
 
 class Message(Base):
-    __tablename__ = 'messagies'
+    __tablename__ = 'messages'
     id = Column(Integer, primary_key=True)
     text = Column(String)
 
+    def __repr__(self):
+        return f'{self.text}'
+
+
+class User(Base):
+    __tablename__ = 'my_users'
+    id = Column(Integer, primary_key=True)
+    username = Column(String)
+
+    def __repr__(self):
+        return f'{self.username}'

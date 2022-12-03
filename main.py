@@ -1,4 +1,5 @@
 from telespam import TeleSpam
+from db import DBHelper
 
 
 file_db = ''
@@ -19,7 +20,6 @@ choise = int(input(
 
 if choise in [1, 2]:
     users = None
-    file_name = input('Введи название файла, куда ты хочешь спарсить юзеров')
     if choise == 1:
         users = obj.parsing_users(False, keywords)
     elif choise == 2:
@@ -30,6 +30,6 @@ if choise in [1, 2]:
                  'Напиши свой выбор')) == 1:
         obj.spam(users, file_db, time_inf, time_sup)
 if choise == 3:
-    users = obj.base_opening('users_database.txt')
-    messages = obj.base_opening('message_database.txt')
+    db = DBHelper(file_db)
+    users = db.get_users()
     obj.spam(users, file_db, time_inf, time_sup)

@@ -26,7 +26,7 @@ class TeleSpam:
             try:
                 self.client.send_code_request(self.phone)
             except PhoneNumberBannedError:
-                print('Данный аккаунт забанен')
+                print('Данный аккаунт забанен\nМеняем аккаунт')
                 self.db.delete_log(self.api_id)
                 logs = self.db.get_log()
                 self.api_id = logs.api_id
@@ -46,11 +46,11 @@ class TeleSpam:
         self.api_id = log.api_id
         self.api_hash = log.api_hash
         self.phone = log.phone
-        print('Аккаунт успешно сменён, продолжаем работу')
 
     def parsing_users(self, is_sorting, keywords):
         chat_title = self.get_chat()
-        self.chat_scraper(chat_title, is_sorting, keywords)
+        users = self.chat_scraper(chat_title, is_sorting, keywords)
+        return users
 
     def get_chat(self):
         chats = [dialog for dialog in self.client.get_dialogs() if dialog.is_group and dialog.is_channel]
@@ -75,11 +75,11 @@ class TeleSpam:
             description_html = soup.find(class_='tgme_page_wrap').find(class_='tgme_body_wrap').find(
                 class_='tgme_page').find(class_='tgme_page_description')
             if description_html:
-                description_html = description_html.text
-                return description_html
+                description = description_html.text
+                return description
 
     def chat_scraper(self, target_group, is_sorting, keywords):
-        user_number = 0
+        users = []
         print('Scraping members...', end='\r')
         parsing_users = [user for user in self.client.get_participants(target_group, aggressive=False) if user]
         with open(f"{input('Укажите название CSV файла для сохранения данных')}.csv", "w", encoding='UTF-8',
@@ -89,27 +89,24 @@ class TeleSpam:
                 for user in parsing_users:
                     if user.username and user.first_name:
                         for keyword in keywords:
-                            is_keyword = keyword in self.get_description(user.username)
+                            is_keyword = keyword in self.get_description(user.username).lower()
                             if is_keyword:
-                                user_number = user_number + 1
+                                users.append(user.username)
+
                                 csv.writer(file).writerow(
                                     (user.username, user.first_name, user.phone, self.get_description(user.username)))
-                                print(f'Сохранено: {user_number}')
+                                print(f'Сохранено: {len(users)}')
             else:
                 for user in parsing_users:
                     if user.username or user.first_name:
-                        user_number = user_number + 1
+                        users.append(user.username)
                         csv.writer(file).writerow(
                             (user.username, user.first_name, user.phone, self.get_description(user.username)))
-                        if user_number % 10 == 0:
-                            print(f'Сохранено: {user_number}')
-            print(f'Сохранено {user_number} пользователей!\n')
+                        if len(users) % 10 == 0:
+                            print(f'Сохранено: {len(users)}')
+            print(f'Сохранено {len(users)} пользователей!\n')
             print('Все данные сохранены!')
-
-    def get_messages(self):
-        messages = self.base_opening('message_database.txt')
-        print(messages)
-        return messages
+            return users
 
     @staticmethod
     def base_opening(file_name):
@@ -120,25 +117,22 @@ class TeleSpam:
 
     def spam(self, users, file_db, time_inf, time_sup):
         delay = random.randint(time_inf, time_sup)
-        messages = self.get_messages()
+        messages = self.db.get_messages()
         for user in users:
             print("Отправка сообщения пользователю: ", user)
             try:
-                self.client.send_message(user, random.choice(messages))
-            except PeerFloodError:
-                print("[!] Telegram выдал ошибку флуда.\n[!] Скрипт приостановлен.\n"
-                      "[!] Переключаем аккаунт")
-                self.switching_account(file_db, self.api_id)
-            except PhoneNumberBannedError:
+                self.client.send_message(user, random.choice(messages).text)
+            except (PhoneNumberBannedError, PeerFloodError):
                 print("[!] Telegram забанил данный аккаунт.\n[!] Скрипт приостановлен.\n"
                       "[!] Переключаем аккаунт")
                 self.switching_account(file_db, self.api_id)
+                self.connect()
+                print('Аккаунт успешно сменён, продолжаем работу')
             except Exception as e:
                 print("[!] Ошибка:", e, "\n[!] Пытаемся продолжить работу...")
                 continue
-            else:
-                if user != users[-1]:
-                    print(f"Ждём {delay} секунд")
-                    time.sleep(delay)
-                    time.sleep(delay)
+            if user != users[-1]:
+                print(f"Ждём {delay} секунд")
+                time.sleep(delay)
+                time.sleep(delay)
         print('\nDone!')
