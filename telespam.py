@@ -47,10 +47,10 @@ class TeleSpam:
         self.api_hash = log.api_hash
         self.phone = log.phone
 
-    def parsing_users(self, is_sorting, keywords):
+    def parsing_users(self, is_sorting):
         chat_title = self.get_chat()
-        users = self.chat_scraper(chat_title, is_sorting, keywords)
-        return users
+        users_id = self.chat_scraper(chat_title, is_sorting)
+        return users_id
 
     def get_chat(self):
         chats = [dialog for dialog in self.client.get_dialogs() if dialog.is_group and dialog.is_channel]
@@ -78,35 +78,34 @@ class TeleSpam:
                 description = description_html.text
                 return description
 
-    def chat_scraper(self, target_group, is_sorting, keywords):
-        users = []
+    def chat_scraper(self, target_group, is_sorting):
+        users_id = []
         print('Scraping members...', end='\r')
         parsing_users = [user for user in self.client.get_participants(target_group, aggressive=False) if user]
-        with open(f"{input('Укажите название CSV файла для сохранения данных')}.csv", "w", encoding='UTF-8',
-                  newline='') as file:
-            csv.writer(file).writerow(('Username', 'First Name', 'Phone', 'Description'))
-            if is_sorting:
-                for user in parsing_users:
-                    if user.username and user.first_name:
-                        for keyword in keywords:
-                            is_keyword = keyword in self.get_description(user.username).lower()
-                            if is_keyword:
-                                users.append(user.username)
-
-                                csv.writer(file).writerow(
-                                    (user.username, user.first_name, user.phone, self.get_description(user.username)))
-                                print(f'Сохранено: {len(users)}')
-            else:
-                for user in parsing_users:
-                    if user.username or user.first_name:
-                        users.append(user.username)
-                        csv.writer(file).writerow(
-                            (user.username, user.first_name, user.phone, self.get_description(user.username)))
-                        if len(users) % 10 == 0:
-                            print(f'Сохранено: {len(users)}')
-            print(f'Сохранено {len(users)} пользователей!\n')
+        table_name = self.db.add_table_users(input('Введи название таблицы, куда будут сохранены пользователи'))
+        if is_sorting:
+            for user in parsing_users:
+                if user.username and user.first_name:
+                    for keyword in self.db.get_keywords():
+                        is_keyword = keyword in self.get_description(user.username).lower()
+                        if is_keyword:
+                            users_id.append(user.id)
+                            self.db.add_user(users_table=table_name, id=user.id, username=user.username,
+                                             first_name=user.first_name,
+                                             phone=user.phone, description=self.get_description(user.username))
+                            print(f'Сохранено: {len(users_id)}')
+        else:
+            for user in parsing_users:
+                if user.username or user.first_name:
+                    users_id.append(user.id)
+                    self.db.add_user(users_table=table_name, id=user.id, username=user.username,
+                                     first_name=user.first_name,
+                                     phone=user.phone, description=self.get_description(user.username))
+                    if len(users_id) % 10 == 0:
+                        print(f'Сохранено: {len(users_id)}')
+            print(f'Сохранено {len(users_id)} пользователей!\n')
             print('Все данные сохранены!')
-            return users
+            return users_id
 
     @staticmethod
     def base_opening(file_name):
@@ -115,13 +114,12 @@ class TeleSpam:
             [base.append(element.strip()) for element in f.readlines()]
         return base
 
-    def spam(self, users, file_db, time_inf, time_sup):
-        delay = random.randint(time_inf, time_sup)
+    def spam(self, users_id, file_db, time_inf, time_sup):
         messages = self.db.get_messages()
-        for user in users:
-            print("Отправка сообщения пользователю: ", user)
+        for user_id in users_id:
+            print("Отправка сообщения пользователю: ", user_id)
             try:
-                self.client.send_message(user, random.choice(messages).text)
+                self.client.send_message(user_id, random.choice(messages).text)
             except (PhoneNumberBannedError, PeerFloodError):
                 print("[!] Telegram забанил данный аккаунт.\n[!] Скрипт приостановлен.\n"
                       "[!] Переключаем аккаунт")
@@ -131,8 +129,8 @@ class TeleSpam:
             except Exception as e:
                 print("[!] Ошибка:", e, "\n[!] Пытаемся продолжить работу...")
                 continue
-            if user != users[-1]:
+            if user_id != users_id[-1]:
+                delay = random.randint(time_inf, time_sup)
                 print(f"Ждём {delay} секунд")
-                time.sleep(delay)
                 time.sleep(delay)
         print('\nDone!')
