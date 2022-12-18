@@ -92,7 +92,7 @@ class TeleSpam:
                         if is_keyword:
                             users_id.append(user.id)
                             self.db.add_user(users_table=table_name, id=user.id, username=user.username,
-                                             first_name=user.first_name,
+                                             first_name=user.first_name, last_name=user.last_name,
                                              phone=user.phone, description=self.get_description(user.username))
                             print(f'Сохранено: {len(users_id)}')
         else:
@@ -100,7 +100,7 @@ class TeleSpam:
                 if user.username or user.first_name:
                     users_id.append(user.id)
                     self.db.add_user(users_table=table_name, id=user.id, username=user.username,
-                                     first_name=user.first_name,
+                                     first_name=user.first_name, last_name=user.last_name,
                                      phone=user.phone, description=self.get_description(user.username))
                     if len(users_id) % 10 == 0:
                         print(f'Сохранено: {len(users_id)}')

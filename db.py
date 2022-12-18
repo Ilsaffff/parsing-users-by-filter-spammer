@@ -45,13 +45,15 @@ class DBHelper:
             id = Column(Integer, primary_key=True)
             username = Column(String)
             first_name = Column(String)
+            last_name = Column(String)
             phone = Column(Integer)
             description = Column(String)
 
         Base.metadata.create_all(self.engine)
         return User
 
-    def add_user(self, users_table, id, username, first_name, phone, description):
+    def add_user(self, users_table, id, username, first_name, last_name, phone, description):
         self.session.add(
-            users_table(username=username, id=id, first_name=first_name, phone=phone, description=description))
+            users_table(username=username, id=id, first_name=first_name, last_name=last_name, phone=phone,
+                        description=description))
         self.session.commit()
