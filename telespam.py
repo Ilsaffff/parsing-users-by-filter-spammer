@@ -81,13 +81,14 @@ class TeleSpam:
     def chat_scraper(self, target_group, is_sorting):
         users_id = []
         print('Scraping members...', end='\r')
-        parsing_users = [user for user in self.client.get_participants(target_group, aggressive=False) if user]
+        parsing_users = [user for user in self.client.get_participants(target_group, aggressive=False, limit=1000000) if
+                         user]
         table_name = self.db.add_table_users(input('Введи название таблицы, куда будут сохранены пользователи'))
         if is_sorting:
             for user in parsing_users:
                 if user.username and user.first_name:
                     for keyword in self.db.get_keywords():
-                        is_keyword = keyword in self.get_description(user.username).lower()
+                        is_keyword = keyword.text.lower() in self.get_description(user.username).lower()
                         if is_keyword:
                             users_id.append(user.id)
                             self.db.add_user(users_table=table_name, id=user.id, username=user.username,
@@ -116,8 +117,11 @@ class TeleSpam:
 
     def spam(self, users_id, file_db, time_inf, time_sup):
         messages = self.db.get_messages()
+        messages_count = 0
         for user_id in users_id:
             print("Отправка сообщения пользователю: ", user_id)
+            messages_count += 1
+            print(f'Отправлено {messages_count} сообщений!')
             try:
                 self.client.send_message(user_id, random.choice(messages).text)
             except (PhoneNumberBannedError, PeerFloodError):
