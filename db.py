@@ -1,5 +1,3 @@
-import random
-
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy_repr import RepresentableBase
@@ -28,10 +26,13 @@ class DBHelper:
         messages = self.session.query(models.Message).all()
         return messages
 
-    def get_users_id(self):
-        users = self.session.query(models.User).all()
-        users_id = [user.id for user in users]
-        return users_id
+    def get_users(self):
+        users_list = self.session.query(models.User).all()
+        users = {'first_name': [], 'username': []}
+        for user in users_list:
+            users['first_name'].append(user.first_name)
+            users['username'].append(user.username)
+        return users
 
     def get_keywords(self):
         keywords = self.session.query(models.Keyword).all()
@@ -52,8 +53,8 @@ class DBHelper:
         Base.metadata.create_all(self.engine)
         return User
 
-    def add_user(self, users_table, id, username, first_name, last_name, phone, description):
+    def add_user(self, users_table, username, first_name, last_name, phone, description):
         self.session.add(
-            users_table(username=username, id=id, first_name=first_name, last_name=last_name, phone=phone,
+            users_table(username=username, first_name=first_name, last_name=last_name, phone=phone,
                         description=description))
         self.session.commit()

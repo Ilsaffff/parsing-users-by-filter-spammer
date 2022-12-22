@@ -1,8 +1,7 @@
-import csv
 import time
 import random
 import requests
-import telethon
+
 from bs4 import BeautifulSoup as bs
 from db import DBHelper
 
@@ -66,11 +65,11 @@ class TeleSpam:
             return chat
 
     @staticmethod
-    def get_description(user):
-        url = 'https://t.me/' + str(user)
+    def get_description(username):
+        url = 'https://t.me/' + str(username)
         r = requests.get(url)
         soup = bs(r.text, "html.parser")
-        if user:
+        if username:
             time.sleep(0.1)
             description_html = soup.find(class_='tgme_page_wrap').find(class_='tgme_body_wrap').find(
                 class_='tgme_page').find(class_='tgme_page_description')
@@ -79,51 +78,47 @@ class TeleSpam:
                 return description
 
     def chat_scraper(self, target_group, is_sorting):
-        users_id = []
+        users = {'first_name': [], 'username': []}
         print('Scraping members...', end='\r')
-        parsing_users = [user for user in self.client.get_participants(target_group, aggressive=False, limit=1000000) if
-                         user]
+        users_list = [user for user in self.client.get_participants(target_group, aggressive=False) if user]
         table_name = self.db.add_table_users(input('Введи название таблицы, куда будут сохранены пользователи'))
         if is_sorting:
-            for user in parsing_users:
-                if user.username and user.first_name:
+            for user in users_list:
+                if user.username:
                     for keyword in self.db.get_keywords():
                         is_keyword = keyword.text.lower() in self.get_description(user.username).lower()
                         if is_keyword:
-                            users_id.append(user.id)
-                            self.db.add_user(users_table=table_name, id=user.id, username=user.username,
+                            users['first_name'].append(user.first_name)
+                            users['username'].append(user.username)
+                            self.db.add_user(users_table=table_name, username=user.username,
                                              first_name=user.first_name, last_name=user.last_name,
                                              phone=user.phone, description=self.get_description(user.username))
-                            print(f'Сохранено: {len(users_id)}')
+                            print(f'Сохранено: {len(users["username"])}')
         else:
-            for user in parsing_users:
-                if user.username or user.first_name:
-                    users_id.append(user.id)
-                    self.db.add_user(users_table=table_name, id=user.id, username=user.username,
+            for user in users_list:
+                if user.username:
+                    print(user)
+                    users['first_name'].append(user.first_name)
+                    users['username'].append(user.username)
+                    self.db.add_user(users_table=table_name, username=user.username,
                                      first_name=user.first_name, last_name=user.last_name,
                                      phone=user.phone, description=self.get_description(user.username))
-                    if len(users_id) % 10 == 0:
-                        print(f'Сохранено: {len(users_id)}')
-            print(f'Сохранено {len(users_id)} пользователей!\n')
+                    if len(users['username']) % 10 == 0:
+                        print(f'Сохранено: {len(users["username"])}')
+            print(f'Сохранено {len(users["username"])} пользователей!\n')
             print('Все данные сохранены!')
-            return users_id
+            return users
 
-    @staticmethod
-    def base_opening(file_name):
-        base = []
-        with open(file_name, "r", encoding="utf-8") as f:
-            [base.append(element.strip()) for element in f.readlines()]
-        return base
-
-    def spam(self, users_id, file_db, time_inf, time_sup):
+    def spam(self, users, file_db, time_inf, time_sup):
         messages = self.db.get_messages()
         messages_count = 0
-        for user_id in users_id:
-            print("Отправка сообщения пользователю: ", user_id)
+        for user in range(len(users['username'])):
+            print("Отправка сообщения пользователю: ", users['username'][user])
             messages_count += 1
             print(f'Отправлено {messages_count} сообщений!')
             try:
-                self.client.send_message(user_id, random.choice(messages).text)
+                message = f'{users["first_name"][user]}' + random.choice(messages).text
+                self.client.send_message(users["username"][user], message=message)
             except (PhoneNumberBannedError, PeerFloodError):
                 print("[!] Telegram забанил данный аккаунт.\n[!] Скрипт приостановлен.\n"
                       "[!] Переключаем аккаунт")
@@ -133,7 +128,7 @@ class TeleSpam:
             except Exception as e:
                 print("[!] Ошибка:", e, "\n[!] Пытаемся продолжить работу...")
                 continue
-            if user_id != users_id[-1]:
+            if user != len(users['username']):
                 delay = random.randint(time_inf, time_sup)
                 print(f"Ждём {delay} секунд")
                 time.sleep(delay)

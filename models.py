@@ -28,6 +28,7 @@ class User(Base):
     __tablename__ = 'my_users'
     id = Column(Integer, primary_key=True)
     username = Column(String)
+    first_name = Column(String)
 
     def __repr__(self):
         return f'{self.id}'
